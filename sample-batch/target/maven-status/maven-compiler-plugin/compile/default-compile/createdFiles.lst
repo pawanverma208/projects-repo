@@ -1,0 +1,10 @@
+com\sample\BatchConfiguration.class
+com\sample\BatchConfiguration$1$1.class
+com\sample\Application.class
+com\sample\JobCompletionNotificationListener.class
+com\sample\FileMessageToJobRequest.class
+com\sample\BatchConfiguration$1.class
+com\sample\domain\Person.class
+com\sample\BatchConfiguration$1$2.class
+com\sample\PersonItemProcessor.class
+com\sample\JobCompletionNotificationListener$1.class

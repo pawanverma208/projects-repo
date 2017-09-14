@@ -1,0 +1,97 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:batch="http://www.springframework.org/schema/batch"
+	xsi:schemaLocation="
+    http://www.springframework.org/schema/batch
+    http://www.springframework.org/schema/batch/spring-batch.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<bean id="stepScope" class="org.springframework.batch.core.scope.StepScope">
+		<property name="autoProxy" value="true" />
+	</bean>
+
+	<bean id="jobScope" class="org.springframework.batch.core.scope.JobScope">
+		<property name="autoProxy" value="true" />
+	</bean>
+
+	<job id="fileProcessingJob" xmlns="http://www.springframework.org/schema/batch">
+
+		<step id="masterStep">
+			<partition step="slave" partitioner="filePartitioner">
+				<handler grid-size="2" task-executor="taskExecutor" />
+			</partition>
+		</step>
+
+		<batch:listeners>
+			<batch:listener ref="interceptingJobExecution" />
+		</batch:listeners>
+	</job>
+
+	<!-- each thread will run this job, with different stepExecutionContext 
+		values. -->
+	<step id="slave" xmlns="http://www.springframework.org/schema/batch">
+		<tasklet>
+			<chunk reader="itemReader" processor="itemProcessor" writer="itemWriter"
+				commit-interval="1" />
+		</tasklet>
+	</step>
+
+
+	<bean id="filePartitioner" class="com.sample.FileResourcePartitioner"
+		scope="job">
+		<!-- <property name="resource" value="file://#{jobParameters['input.file.name']}" 
+			/> -->
+		<property name="resource" value="file://#{jobParameters['input.file.name']}" />
+	</bean>
+
+	<bean id="taskExecutor" class="org.springframework.core.task.SimpleAsyncTaskExecutor" />
+
+	<bean id="itemReader" class="org.springframework.batch.item.file.FlatFileItemReader"
+		scope="step">
+		<!-- <property name="resource" value="file://#{jobParameters['input.file.name']}" 
+			/> -->
+		<property name="resource"
+			value="file:///#{stepExecutionContext['partition.file.name']}" />
+		<property name="lineMapper">
+			<bean class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+				<property name="lineTokenizer">
+					<bean
+						class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+						<property name="names" value="firstName,lastName" />
+					</bean>
+				</property>
+				<property name="fieldSetMapper">
+					<bean
+						class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper">
+						<property name="prototypeBeanName" value="person" />
+					</bean>
+				</property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="itemProcessor" class="com.sample.PersonItemProcessor" />
+
+	<bean id="itemWriter"
+		class="org.springframework.batch.item.database.JdbcBatchItemWriter">
+		<property name="dataSource" ref="dataSource" />
+		<property name="sql">
+			<value>
+            <![CDATA[
+            	insert into people(first_name,last_name)
+			values (:firstName, :lastName)
+            ]]>
+			</value>
+		</property>
+		<!-- It will take care matching between object property and sql name parameter -->
+		<property name="itemSqlParameterSourceProvider">
+			<bean
+				class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+		</property>
+	</bean>
+
+	<bean id="person" class="com.sample.domain.Person" scope="prototype" />
+
+	<!-- Listener -->
+	<bean id="interceptingJobExecution" class="com.sample.JobCompletionNotificationListener" />
+</beans> 	 	
